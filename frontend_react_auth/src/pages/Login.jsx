@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
 import TextInput from '../components/TextInput';
 import Button from '../components/Button';
@@ -15,18 +15,35 @@ function Login() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [alertMsg, setAlertMsg] = useState('');
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const successFromRegister = location.state?.successMessage || '';
+  const showRegisterSuccess = !!successFromRegister;
 
   const onChange = (e) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   };
 
+  // Basic email or username heuristic: allow either "name" or "name@domain"
+  const isEmailLike = (val) => /\S+@\S+\.\S+/.test(val);
+
   const validate = () => {
     const e = {};
     if (!form.email.trim()) e.email = 'Email or username is required';
+    if (form.email && form.email.includes('@') && !isEmailLike(form.email)) {
+      e.email = 'Enter a valid email address or use a username without @';
+    }
     if (!form.password.trim()) e.password = 'Password is required';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
+
+  const isValid = useMemo(() => {
+    if (!form.email.trim() || !form.password.trim()) return false;
+    if (form.email.includes('@') && !isEmailLike(form.email)) return false;
+    return true;
+  }, [form.email, form.password]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -35,8 +52,14 @@ function Login() {
     setSubmitting(true);
     try {
       // Attempt API call; if backend not ready, error will be surfaced.
-      await loginApi({ email: form.email, password: form.password });
-      setAlertMsg('Login successful (placeholder).');
+      const data = await loginApi({ email: form.email, password: form.password });
+      // Persist token placeholder and user; backends often return token but our placeholder might not.
+      const token = data?.token || 'demo-token';
+      const user = data?.user || { email: form.email, name: (form.email.split('@')[0]) || 'User' };
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('auth_user', JSON.stringify(user));
+      // Navigate to dashboard with a welcome notice.
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       setAlertMsg(err?.message || 'Unable to login.');
     } finally {
@@ -51,7 +74,10 @@ function Login() {
         <p className="auth-desc">Sign in to continue</p>
       </div>
 
-      {alertMsg ? <Alert variant={alertMsg.includes('successful') ? 'success' : 'error'}>{alertMsg}</Alert> : null}
+      {showRegisterSuccess && (
+        <Alert variant="success" role="status">{successFromRegister}</Alert>
+      )}
+      {alertMsg ? <Alert variant="error">{alertMsg}</Alert> : null}
 
       <form onSubmit={onSubmit} noValidate>
         <TextInput
@@ -75,8 +101,11 @@ function Login() {
           placeholder="••••••••"
           error={errors.password}
         />
+        <div style={{ fontSize: 12, color: 'rgba(17,24,39,0.7)' }}>
+          Use your registered email or username.
+        </div>
         <div style={{ marginTop: 14 }}>
-          <Button type="submit" loading={submitting} disabled={submitting} variant="primary">
+          <Button type="submit" loading={submitting} disabled={submitting || !isValid} variant="primary">
             Sign In
           </Button>
         </div>

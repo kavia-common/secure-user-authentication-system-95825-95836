@@ -4,6 +4,16 @@ import './App.css';
 import './styles/theme.css';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+
+/**
+ * ProtectedRoute checks for auth_token in localStorage and gates access.
+ * If no token is present, redirect to /login.
+ */
+function ProtectedRoute({ children }) {
+  const isAuthed = typeof window !== 'undefined' && !!localStorage.getItem('auth_token');
+  return isAuthed ? children : <Navigate to="/login" replace />;
+}
 
 const BrandHeader = () => (
   <header className="brand-header" role="banner">
@@ -33,6 +43,14 @@ function App() {
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </main>

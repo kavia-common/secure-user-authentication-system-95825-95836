@@ -38,8 +38,17 @@ export const apiClient = axios.create({
   timeout: 10000, // 10s timeout to avoid hanging network errors
 });
 
-// Temporary request/response logging to help diagnose "Network error"
+// Attach Authorization header if token exists in localStorage
 apiClient.interceptors.request.use((config) => {
+  try {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    // ignore storage issues
+  }
   // eslint-disable-next-line no-console
   console.debug(
     '[API] Request:',
@@ -47,7 +56,7 @@ apiClient.interceptors.request.use((config) => {
       {
         method: config.method,
         url: (config.baseURL || '') + (config.url || ''),
-        headers: { 'Content-Type': config.headers?.['Content-Type'] || 'application/json' },
+        headers: { 'Content-Type': config.headers?.['Content-Type'] || 'application/json', Authorization: !!config.headers?.Authorization },
       },
       null,
       2
