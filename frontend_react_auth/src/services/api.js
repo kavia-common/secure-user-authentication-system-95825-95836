@@ -18,12 +18,22 @@ export const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (res) => res,
   (error) => {
-    const message =
+    const status = error?.response?.status || 0;
+    let message =
       error?.response?.data?.message ||
       error?.response?.data?.detail ||
       error?.message ||
       'Request failed';
-    return Promise.reject({ message, status: error?.response?.status || 0 });
+
+    // Provide clearer guidance for opaque network errors (e.g., CORS or server down)
+    if (message.toLowerCase().includes('network error') || status === 0) {
+      message =
+        'Network error: Unable to reach the API. Ensure the backend is running at ' +
+        (BASE_URL || 'http://localhost:3001') +
+        ' and CORS is configured. You can set REACT_APP_API_BASE_URL in your environment.';
+    }
+
+    return Promise.reject({ message, status });
   }
 );
 
